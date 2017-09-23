@@ -21,6 +21,9 @@ from homeassistant.config import load_yaml_config_file
 ATTR_MESSAGE = 'message'
 ATTR_NOTIFICATION_ID = 'notification_id'
 ATTR_TITLE = 'title'
+ATTR_ACTIONS = 'actions'
+ATTR_ACTION = 'action'
+ATTR_DATA = 'data'
 
 DOMAIN = 'persistent_notification'
 
@@ -33,6 +36,13 @@ SCHEMA_SERVICE_CREATE = vol.Schema({
     vol.Required(ATTR_MESSAGE): cv.template,
     vol.Optional(ATTR_TITLE): cv.template,
     vol.Optional(ATTR_NOTIFICATION_ID): cv.string,
+    vol.Optional(ATTR_ACTIONS):[
+        {
+            vol.Required(ATTR_ACTION): cv.string,
+            vol.Required(ATTR_TITLE): cv.string,
+            vol.Optional(ATTR_DATA): dict
+        }
+    ] 
 })
 
 SCHEMA_SERVICE_DISMISS = vol.Schema({
@@ -47,12 +57,14 @@ _LOGGER = logging.getLogger(__name__)
 @bind_hass
 def create(hass, message, title=None, notification_id=None):
     """Generate a notification."""
+    _LOGGER.info("CHEKCPOINT -- create")
     hass.add_job(async_create, hass, message, title, notification_id)
 
 
 @bind_hass
 def dismiss(hass, notification_id):
     """Remove a notification."""
+    _LOGGER.info("CHECKPOINT -- dismiss")
     hass.add_job(async_dismiss, hass, notification_id)
 
 
@@ -79,6 +91,15 @@ def async_dismiss(hass, notification_id):
 
     hass.async_add_job(hass.services.async_call(DOMAIN, SERVICE_DISMISS, data))
 
+@callback
+@bind_hass
+def async_download(hass, notification_id):
+    """Test download callback."""
+    data = {ATTR_NOTIFICATION_ID: notification_id}
+
+    #hass.async_add_job(hass.services.async_call(DOMAIN, SERVICE_DISMISS, data))
+    _LOGGER.info("TEST DOWNLOAD OPTION FROM NOTIFICATION")
+
 
 @asyncio.coroutine
 def async_setup(hass, config):
@@ -89,6 +110,7 @@ def async_setup(hass, config):
         title = call.data.get(ATTR_TITLE)
         message = call.data.get(ATTR_MESSAGE)
         notification_id = call.data.get(ATTR_NOTIFICATION_ID)
+        actions = call.data.get(ATTR_ACTIONS)
 
         if notification_id is not None:
             entity_id = ENTITY_ID_FORMAT.format(slugify(notification_id))
@@ -105,6 +127,9 @@ def async_setup(hass, config):
                 title = title.template
 
             attr[ATTR_TITLE] = title
+
+        if actions is not None:
+            attr[ATTR_ACTIONS] = actions
 
         try:
             message.hass = hass
